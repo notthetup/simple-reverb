@@ -1,4 +1,3 @@
-
 /**
  * Simple Reverb constructor.
  *
@@ -18,6 +17,7 @@ function SimpleReverb (context, opts) {
   this._seconds   = opts.seconds  || p.seconds.defaultValue;
   this._decay     = opts.decay    || p.decay.defaultValue;
   this._reverse   = opts.reverse  || p.reverse.defaultValue;
+  this._delay   = opts.delay  || p.delay.defaultValue;
   this._buildImpulse();
 }
 
@@ -53,7 +53,9 @@ SimpleReverb.prototype = Object.create(null, {
   _buildImpulse: {
     value: function () {
       var rate = this._context.sampleRate
-        , length = rate * this.seconds
+        , delayDuration = rate * this.delay
+        , decayDuration = rate * this.seconds
+        , length = decayDuration + delayDuration
         , decay = this.decay
         , impulse = this._context.createBuffer(2, length, rate)
         , impulseL = impulse.getChannelData(0)
@@ -61,9 +63,14 @@ SimpleReverb.prototype = Object.create(null, {
         , n, i;
 
       for (i = 0; i < length; i++) {
-        n = this.reverse ? length - i : i;
-        impulseL[i] = (Math.random() * 2 - 1) * Math.pow(1 - n / length, decay);
-        impulseR[i] = (Math.random() * 2 - 1) * Math.pow(1 - n / length, decay);
+        if (i < delayDuration){
+          impulseL[i] = 0;
+          impulseR[i] = 0;
+        }else{
+          n = this.reverse ? decayDuration - (i - delayDuration) : i - delayDuration;
+          impulseL[i] = (Math.random() * 2 - 1) * Math.pow(1 - n / decayDuration, decay);
+          impulseR[i] = (Math.random() * 2 - 1) * Math.pow(1 - n / decayDuration, decay);
+        }
       }
 
       this.input.buffer = impulse;
@@ -95,6 +102,12 @@ SimpleReverb.prototype = Object.create(null, {
           max: 1,
           defaultValue: 0,
           type: "bool"
+        },
+        delay: {
+          min: 0,
+          max: 100,
+          defaultValue: 0,
+          type: "float"
         }
       }
     }
@@ -127,6 +140,15 @@ SimpleReverb.prototype = Object.create(null, {
     get: function () { return this._reverse; },
     set: function (value) {
       this._reverse = value;
+      this._buildImpulse();
+    }
+  }, 
+  
+  delay: {
+    enumerable: true,
+    get: function () { return this._delay; },
+    set: function (value) {
+      this._delay = value;
       this._buildImpulse();
     }
   }
